@@ -5,12 +5,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CityPay | Crypto Network Quiz</title>
+
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#10251f;color:#f4f7f3;font-family:Arial,sans-serif;padding:24px}
-main{max-width:1100px;margin:auto}
+main{max-width:1200px;margin:auto}
 h1{color:#e8c547;margin-bottom:8px}
 .sub{color:#b8c9c0;margin-bottom:24px}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+.leaderboard{background:#1b382f;border:1px solid #345448;border-radius:14px;padding:16px;width:310px;max-width:100%}
+.leaderboard h2{font-size:18px;margin:0 0 12px;color:#e8c547}
+.leader-row{display:grid;grid-template-columns:25px 1fr auto;gap:8px;padding:9px 0;border-bottom:1px solid #345448;font-size:13px;align-items:center}
+.leader-row:last-child{border-bottom:0}
+.leader-row .rank{color:#e8c547;font-weight:bold}
+.leader-row .player{overflow-wrap:anywhere}
+.leader-row .result{text-align:right;white-space:nowrap}
+.leader-row small{display:block;color:#b8c9c0;margin-top:3px}
+.leader-status{font-size:12px;color:#b8c9c0;margin-top:10px}
+.player-box{background:#1b382f;border:1px solid #345448;border-radius:14px;padding:16px;margin:20px 0}
+.player-box label{display:block;margin-bottom:9px;font-weight:bold}
+.player-controls{display:flex;gap:10px;flex-wrap:wrap}
+input{background:#10251f;color:white;border:1px solid #668477;border-radius:9px;padding:12px;font-size:15px;flex:1;min-width:180px}
+input:focus{outline:2px solid #e8c547}
 .stats{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}
 .stat,.panel{background:#1b382f;border:1px solid #345448;border-radius:14px;padding:16px}
 .stat{flex:1;min-width:110px}
@@ -28,116 +44,427 @@ h1{color:#e8c547;margin-bottom:8px}
 .placed{display:flex;flex-wrap:wrap;gap:5px}
 .placed span{background:#315b49;padding:6px 8px;border-radius:7px;font-size:12px}
 button.action{background:#e8c547;color:#17271f;border:0;border-radius:9px;padding:12px 18px;font-weight:bold;cursor:pointer;margin-top:18px}
+button.secondary{background:#315b49;color:white;border:1px solid #668477;border-radius:9px;padding:12px 18px;font-weight:bold;cursor:pointer}
 button:disabled{opacity:.5;cursor:not-allowed}
 #message{margin-top:16px;min-height:26px;font-weight:bold}
-@media(max-width:700px){.layout{grid-template-columns:1fr}.networks{grid-template-columns:1fr 1fr}}
+.hidden{display:none!important}
+@media(max-width:700px){
+.layout{grid-template-columns:1fr}
+.networks{grid-template-columns:1fr 1fr}
+.topbar{display:flex;flex-direction:column}
+.leaderboard{width:100%}
+}
 </style>
 </head>
+
 <body>
 <main>
-<h1>CityPay Crypto Network Quiz</h1>
-<p class="sub">Drag each crypto asset to its correct blockchain network. On mobile, tap an asset and then tap a network.</p>
 
-<div class="stats">
-<div class="stat">Score<strong id="score">0</strong></div>
-<div class="stat">Matched<strong id="matched">0 / 14</strong></div>
-<div class="stat">Attempts<strong id="attempts">0</strong></div>
+<div class="topbar">
+  <div>
+    <h1>CityPay Crypto Network Quiz</h1>
+    <p class="sub">Drag each crypto asset to its correct blockchain network. On mobile, tap an asset and then tap a network.</p>
+  </div>
+
+  <section class="leaderboard">
+    <h2>🏆 Best Results</h2>
+    <div id="leaderboardList">Loading leaderboard...</div>
+    <div class="leader-status" id="leaderStatus">Connecting to database...</div>
+  </section>
 </div>
 
-<div class="layout">
-<section class="panel">
-<h2>🪙 Token pool</h2>
-<div class="pool" id="pool"></div>
-<p class="sub">Select or drag a token to a network.</p>
+<section class="player-box">
+  <label for="playerName">Your name</label>
+  <div class="player-controls">
+    <input id="playerName" type="text" maxlength="40"
+      placeholder="Enter your name">
+    <button class="action" id="startButton" onclick="beginQuiz()">Start quiz</button>
+  </div>
+  <p class="sub" style="margin:10px 0 0">Use the same name every time so your personal best can be updated.</p>
 </section>
 
-<section class="panel">
-<h2>🌐 Blockchain networks</h2>
-<div class="networks" id="networks"></div>
-</section>
+<div id="gameArea" class="hidden">
+
+  <div class="stats">
+    <div class="stat">Player<strong id="currentPlayer" style="font-size:18px">-</strong></div>
+    <div class="stat">Score<strong id="score">0</strong></div>
+    <div class="stat">Matched<strong id="matched">0 / 14</strong></div>
+    <div class="stat">Attempts<strong id="attempts">0</strong></div>
+  </div>
+
+  <div class="layout">
+    <section class="panel">
+      <h2>🪙 Token pool</h2>
+      <div class="pool" id="pool"></div>
+      <p class="sub">Select or drag a token to a network.</p>
+    </section>
+
+    <section class="panel">
+      <h2>🌐 Blockchain networks</h2>
+      <div class="networks" id="networks"></div>
+    </section>
+  </div>
+
+  <div id="message" aria-live="polite">Choose your first token!</div>
+  <button class="action" onclick="restart()">Play again</button>
 </div>
 
-<div id="message" aria-live="polite">Choose your first token!</div>
-<button class="action" onclick="restart()">Restart quiz</button>
 </main>
 
 <script>
-const assets=[
-["USDT TRC-20","TRON"],
-["USDT BEP-20","BNB Chain"],
-["USDT Polygon","Polygon"],
-["USDT TON","TON"],
-["USDT ERC-20","Ethereum"],
-["USDT Solana","Solana"],
-["ETH","Ethereum"],
-["BTC","Bitcoin"],
-["BNB","BNB Chain"],
-["SOL","Solana"],
-["XRP","XRP Ledger"],
-["XAUT (Tether Gold)","Ethereum"],
-["Toncoin (TON)","TON"],
-["TRX","TRON"]
+// ==========================================
+// SUPABASE CONFIGURATION
+// ==========================================
+
+const SUPABASE_URL = "https://oyauktjefrzngmwyftfd.supabase.co";
+
+const SUPABASE_KEY = "sb_publishable_mIW13CDb7A3GQMceIf7rdQ_tt2G3d8Y";
+
+const HEADERS = {
+  "apikey": SUPABASE_KEY,
+  "Authorization": "Bearer " + SUPABASE_KEY,
+  "Content-Type": "application/json"
+};
+
+// ==========================================
+// GAME DATA
+// ==========================================
+
+const assets = [
+  ["USDT TRC-20","TRON"],
+  ["USDT BEP-20","BNB Chain"],
+  ["USDT Polygon","Polygon"],
+  ["USDT TON","TON"],
+  ["USDT ERC-20","Ethereum"],
+  ["USDT Solana","Solana"],
+  ["ETH","Ethereum"],
+  ["BTC","Bitcoin"],
+  ["BNB","BNB Chain"],
+  ["SOL","Solana"],
+  ["XRP","XRP Ledger"],
+  ["XAUT (Tether Gold)","Ethereum"],
+  ["Toncoin (TON)","TON"],
+  ["TRX","TRON"]
 ];
 
-const chains=["Ethereum","BNB Chain","TRON","Polygon","TON","Bitcoin","Solana","XRP Ledger"];
-let selected=null,score=0,attempts=0,matched=0,placed=[];
+const chains = [
+  "Ethereum","BNB Chain","TRON","Polygon",
+  "TON","Bitcoin","Solana","XRP Ledger"
+];
 
-function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+let selected = null;
+let score = 0;
+let attempts = 0;
+let matched = 0;
+let player = "";
+let gameStarted = false;
+let gameFinished = false;
 
-function start(){
-selected=null;score=0;attempts=0;matched=0;placed=[];
-document.getElementById("score").textContent=0;
-document.getElementById("attempts").textContent=0;
-document.getElementById("matched").textContent="0 / 14";
-document.getElementById("message").textContent="Choose your first token!";
-const pool=document.getElementById("pool");
-pool.innerHTML="";
-shuffle(assets).forEach((asset)=>{
-const el=document.createElement("button");
-el.className="token";el.textContent=asset[0];el.draggable=true;
-el.dataset.name=asset[0];el.dataset.chain=asset[1];
-el.onclick=()=>selectToken(el);
-el.ondragstart=e=>{e.dataTransfer.setData("text/plain",asset[0]);selected=el};
-pool.appendChild(el);
+// ==========================================
+// SUPABASE LEADERBOARD
+// ==========================================
+
+async function loadLeaderboard() {
+  const list = document.getElementById("leaderboardList");
+  const status = document.getElementById("leaderStatus");
+
+  try {
+    const response = await fetch(
+      SUPABASE_URL +
+      "/rest/v1/quiz_leaderboard?select=player_name,best_score,attempts_to_best,updated_at&order=best_score.desc,attempts_to_best.asc&limit=10",
+      { headers: HEADERS }
+    );
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    const rows = await response.json();
+
+    if (rows.length === 0) {
+      list.innerHTML = "<p>No results yet. Be the first!</p>";
+    } else {
+      list.innerHTML = "";
+
+      rows.forEach((row, index) => {
+        const item = document.createElement("div");
+        item.className = "leader-row";
+
+        const rank = document.createElement("span");
+        rank.className = "rank";
+        rank.textContent = "#" + (index + 1);
+
+        const name = document.createElement("span");
+        name.className = "player";
+        name.textContent = row.player_name;
+
+        const result = document.createElement("span");
+        result.className = "result";
+
+        const scoreText = document.createElement("strong");
+        scoreText.textContent = row.best_score + "/140";
+
+        const attemptsText = document.createElement("small");
+        attemptsText.textContent =
+          row.attempts_to_best + " attempts";
+
+        result.appendChild(scoreText);
+        result.appendChild(attemptsText);
+
+        item.appendChild(rank);
+        item.appendChild(name);
+        item.appendChild(result);
+
+        list.appendChild(item);
+      });
+    }
+
+    status.textContent = "Shared leaderboard • Updated just now";
+  } catch (error) {
+    console.error("Leaderboard error:", error);
+    list.textContent = "Unable to load results.";
+    status.textContent = "Database connection error. Please refresh.";
+  }
+}
+
+async function submitResult() {
+  const message = document.getElementById("message");
+
+  message.textContent = "Quiz completed! Saving your result...";
+
+  try {
+    const response = await fetch(
+      SUPABASE_URL + "/rest/v1/rpc/submit_quiz_result",
+      {
+        method: "POST",
+        headers: HEADERS,
+        body: JSON.stringify({
+          p_player_name: player,
+          p_score: score,
+          p_attempts: attempts
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+
+    message.textContent =
+      "🎉 Quiz completed! Score: " + score +
+      "/140. Attempts: " + attempts +
+      ". Your result has been saved!";
+
+    await loadLeaderboard();
+
+  } catch (error) {
+    console.error("Result submission error:", error);
+
+    message.textContent =
+      "🎉 Quiz completed! Score: " + score +
+      "/140. Attempts: " + attempts +
+      ". Could not save your result. Please try again later.";
+  }
+}
+
+// ==========================================
+// GAME LOGIC
+// ==========================================
+
+function shuffle(array) {
+  return [...array].sort(() => Math.random() - 0.5);
+}
+
+function beginQuiz() {
+  const input = document.getElementById("playerName");
+  const name = input.value.trim();
+
+  if (!name) {
+    alert("Please enter your name before starting.");
+    input.focus();
+    return;
+  }
+
+  player = name;
+  gameStarted = true;
+
+  document.getElementById("gameArea").classList.remove("hidden");
+  document.getElementById("currentPlayer").textContent = player;
+
+  start();
+}
+
+function start() {
+  selected = null;
+  score = 0;
+  attempts = 0;
+  matched = 0;
+  gameFinished = false;
+
+  document.getElementById("score").textContent = 0;
+  document.getElementById("attempts").textContent = 0;
+  document.getElementById("matched").textContent = "0 / 14";
+  document.getElementById("message").textContent = "Choose your first token!";
+
+  const pool = document.getElementById("pool");
+  pool.innerHTML = "";
+
+  shuffle(assets).forEach(asset => {
+    const el = document.createElement("button");
+
+    el.className = "token";
+    el.textContent = asset[0];
+    el.draggable = true;
+    el.dataset.name = asset[0];
+    el.dataset.chain = asset[1];
+
+    el.onclick = () => selectToken(el);
+
+    el.ondragstart = e => {
+      if (gameFinished) {
+        e.preventDefault();
+        return;
+      }
+      e.dataTransfer.setData("text/plain", asset[0]);
+      selected = el;
+    };
+
+    pool.appendChild(el);
+  });
+
+  const area = document.getElementById("networks");
+  area.innerHTML = "";
+
+  chains.forEach(chain => {
+    const box = document.createElement("div");
+
+    box.className = "network";
+    box.dataset.chain = chain;
+
+    const heading = document.createElement("h3");
+    heading.textContent = chain;
+
+    const hint = document.createElement("small");
+    hint.textContent = "Drop or tap here";
+
+    const placedArea = document.createElement("div");
+    placedArea.className = "placed";
+
+    box.appendChild(heading);
+    box.appendChild(hint);
+    box.appendChild(placedArea);
+
+    box.onclick = () => {
+      if (selected && !gameFinished) {
+        place(selected, chain);
+      }
+    };
+
+    box.ondragover = e => {
+      e.preventDefault();
+      if (!gameFinished) box.classList.add("over");
+    };
+
+    box.ondragleave = () => box.classList.remove("over");
+
+    box.ondrop = e => {
+      e.preventDefault();
+      box.classList.remove("over");
+
+      if (gameFinished) return;
+
+      const name = e.dataTransfer.getData("text/plain");
+
+      const el = [...document.querySelectorAll(".token")]
+        .find(t => t.dataset.name === name);
+
+      if (el) place(el, chain);
+    };
+
+    area.appendChild(box);
+  });
+}
+
+function selectToken(el) {
+  if (el.disabled || gameFinished) return;
+
+  document.querySelectorAll(".token")
+    .forEach(t => t.classList.remove("selected"));
+
+  selected = el;
+  el.classList.add("selected");
+
+  document.getElementById("message").textContent =
+    "Selected " + el.dataset.name + ". Now choose its network.";
+}
+
+function place(el, chain) {
+  if (el.disabled || gameFinished) return;
+
+  attempts++;
+
+  document.getElementById("attempts").textContent = attempts;
+
+  if (el.dataset.chain === chain) {
+    score += 10;
+    matched++;
+
+    el.disabled = true;
+    el.style.display = "none";
+
+    const box = [...document.querySelectorAll(".network")]
+      .find(n => n.dataset.chain === chain);
+
+    const tag = document.createElement("span");
+    tag.textContent = el.dataset.name;
+
+    box.querySelector(".placed").appendChild(tag);
+
+    document.getElementById("message").textContent =
+      "✓ Correct! " + el.dataset.name + " belongs to " + chain + ".";
+
+  } else {
+    document.getElementById("message").textContent =
+      "✗ Not quite. " + el.dataset.name +
+      " belongs to another network. Try again!";
+  }
+
+  document.getElementById("score").textContent = score;
+
+  document.getElementById("matched").textContent =
+    matched + " / 14";
+
+  selected = null;
+
+  document.querySelectorAll(".token")
+    .forEach(t => t.classList.remove("selected"));
+
+  if (matched === 14) {
+    gameFinished = true;
+    submitResult();
+  }
+}
+
+function restart() {
+  if (!gameStarted) return;
+  start();
+}
+
+// ==========================================
+// INITIALIZATION
+// ==========================================
+
+loadLeaderboard();
+
+// Refresh leaderboard every 30 seconds so
+// trainees can see other players' results.
+setInterval(loadLeaderboard, 30000);
+
+// Allow Enter key to start the quiz.
+document.getElementById("playerName").addEventListener("keydown", e => {
+  if (e.key === "Enter") beginQuiz();
 });
-const area=document.getElementById("networks");area.innerHTML="";
-chains.forEach(chain=>{
-const box=document.createElement("div");
-box.className="network";box.dataset.chain=chain;
-box.innerHTML="<h3>"+chain+"</h3><small>Drop or tap here</small><div class='placed'></div>";
-box.onclick=()=>{if(selected)place(selected,chain)};
-box.ondragover=e=>{e.preventDefault();box.classList.add("over")};
-box.ondragleave=()=>box.classList.remove("over");
-box.ondrop=e=>{e.preventDefault();box.classList.remove("over");const name=e.dataTransfer.getData("text/plain");const el=[...document.querySelectorAll(".token")].find(t=>t.dataset.name===name);if(el)place(el,chain)};
-area.appendChild(box);
-});
-}
-function selectToken(el){
-if(el.disabled)return;
-document.querySelectorAll(".token").forEach(t=>t.classList.remove("selected"));
-selected=el;el.classList.add("selected");
-document.getElementById("message").textContent="Selected "+el.dataset.name+". Now choose its network.";
-}
-function place(el,chain){
-if(el.disabled)return;
-attempts++;
-document.getElementById("attempts").textContent=attempts;
-if(el.dataset.chain===chain){
-score+=10;matched++;el.disabled=true;el.style.display="none";
-const box=[...document.querySelectorAll(".network")].find(n=>n.dataset.chain===chain);
-const tag=document.createElement("span");tag.textContent=el.dataset.name;
-box.querySelector(".placed").appendChild(tag);
-document.getElementById("message").textContent="✓ Correct! "+el.dataset.name+" belongs to "+chain+".";
-}else{
-document.getElementById("message").textContent="✗ Not quite. "+el.dataset.name+" belongs to another network. Try again!";
-}
-document.getElementById("score").textContent=score;
-document.getElementById("matched").textContent=matched+" / 14";
-selected=null;document.querySelectorAll(".token").forEach(t=>t.classList.remove("selected"));
-if(matched===14)document.getElementById("message").textContent="🎉 Quiz completed! Final score: "+score+" / 140. Attempts: "+attempts+".";
-}
-function restart(){start()}
-start();
 </script>
+
 </body>
 </html>
