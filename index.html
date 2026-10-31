@@ -1,1 +1,144 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CityPay | Crypto Network Quiz</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10251f;color:#f4f7f3;font-family:Arial,sans-serif;padding:24px}
+main{max-width:1100px;margin:auto}
+h1{color:#e8c547;margin-bottom:8px}
+.sub{color:#b8c9c0;margin-bottom:24px}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}
+.stat,.panel{background:#1b382f;border:1px solid #345448;border-radius:14px;padding:16px}
+.stat{flex:1;min-width:110px}
+.stat strong{display:block;font-size:24px;color:#e8c547}
+.layout{display:grid;grid-template-columns:1fr 1.4fr;gap:18px}
+.panel h2{font-size:18px;margin-top:0}
+.pool{display:flex;flex-wrap:wrap;gap:10px;min-height:150px}
+.token{background:#e8c547;color:#17271f;border:0;border-radius:10px;padding:12px;font-weight:bold;cursor:grab;user-select:none}
+.token.selected{outline:3px solid white}
+.networks{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.network{background:#142c24;border:2px dashed #668477;border-radius:12px;padding:13px;min-height:100px;cursor:pointer}
+.network.over{border-color:#e8c547;background:#284b3e}
+.network h3{font-size:15px;margin:0 0 10px}
+.network small{color:#b8c9c0}
+.placed{display:flex;flex-wrap:wrap;gap:5px}
+.placed span{background:#315b49;padding:6px 8px;border-radius:7px;font-size:12px}
+button.action{background:#e8c547;color:#17271f;border:0;border-radius:9px;padding:12px 18px;font-weight:bold;cursor:pointer;margin-top:18px}
+button:disabled{opacity:.5;cursor:not-allowed}
+#message{margin-top:16px;min-height:26px;font-weight:bold}
+@media(max-width:700px){.layout{grid-template-columns:1fr}.networks{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>CityPay Crypto Network Quiz</h1>
+<p class="sub">Drag each crypto asset to its correct blockchain network. On mobile, tap an asset and then tap a network.</p>
+
+<div class="stats">
+<div class="stat">Score<strong id="score">0</strong></div>
+<div class="stat">Matched<strong id="matched">0 / 14</strong></div>
+<div class="stat">Attempts<strong id="attempts">0</strong></div>
+</div>
+
+<div class="layout">
+<section class="panel">
+<h2>🪙 Token pool</h2>
+<div class="pool" id="pool"></div>
+<p class="sub">Select or drag a token to a network.</p>
+</section>
+
+<section class="panel">
+<h2>🌐 Blockchain networks</h2>
+<div class="networks" id="networks"></div>
+</section>
+</div>
+
+<div id="message" aria-live="polite">Choose your first token!</div>
+<button class="action" onclick="restart()">Restart quiz</button>
+</main>
+
+<script>
+const assets=[
+["USDT TRC-20","TRON"],
+["USDT BEP-20","BNB Chain"],
+["USDT Polygon","Polygon"],
+["USDT TON","TON"],
+["USDT ERC-20","Ethereum"],
+["USDT Solana","Solana"],
+["ETH","Ethereum"],
+["BTC","Bitcoin"],
+["BNB","BNB Chain"],
+["SOL","Solana"],
+["XRP","XRP Ledger"],
+["XAUT (Tether Gold)","Ethereum"],
+["Toncoin (TON)","TON"],
+["TRX","TRON"]
+];
+
+const chains=["Ethereum","BNB Chain","TRON","Polygon","TON","Bitcoin","Solana","XRP Ledger"];
+let selected=null,score=0,attempts=0,matched=0,placed=[];
+
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+
+function start(){
+selected=null;score=0;attempts=0;matched=0;placed=[];
+document.getElementById("score").textContent=0;
+document.getElementById("attempts").textContent=0;
+document.getElementById("matched").textContent="0 / 14";
+document.getElementById("message").textContent="Choose your first token!";
+const pool=document.getElementById("pool");
+pool.innerHTML="";
+shuffle(assets).forEach((asset)=>{
+const el=document.createElement("button");
+el.className="token";el.textContent=asset[0];el.draggable=true;
+el.dataset.name=asset[0];el.dataset.chain=asset[1];
+el.onclick=()=>selectToken(el);
+el.ondragstart=e=>{e.dataTransfer.setData("text/plain",asset[0]);selected=el};
+pool.appendChild(el);
+});
+const area=document.getElementById("networks");area.innerHTML="";
+chains.forEach(chain=>{
+const box=document.createElement("div");
+box.className="network";box.dataset.chain=chain;
+box.innerHTML="<h3>"+chain+"</h3><small>Drop or tap here</small><div class='placed'></div>";
+box.onclick=()=>{if(selected)place(selected,chain)};
+box.ondragover=e=>{e.preventDefault();box.classList.add("over")};
+box.ondragleave=()=>box.classList.remove("over");
+box.ondrop=e=>{e.preventDefault();box.classList.remove("over");const name=e.dataTransfer.getData("text/plain");const el=[...document.querySelectorAll(".token")].find(t=>t.dataset.name===name);if(el)place(el,chain)};
+area.appendChild(box);
+});
+}
+function selectToken(el){
+if(el.disabled)return;
+document.querySelectorAll(".token").forEach(t=>t.classList.remove("selected"));
+selected=el;el.classList.add("selected");
+document.getElementById("message").textContent="Selected "+el.dataset.name+". Now choose its network.";
+}
+function place(el,chain){
+if(el.disabled)return;
+attempts++;
+document.getElementById("attempts").textContent=attempts;
+if(el.dataset.chain===chain){
+score+=10;matched++;el.disabled=true;el.style.display="none";
+const box=[...document.querySelectorAll(".network")].find(n=>n.dataset.chain===chain);
+const tag=document.createElement("span");tag.textContent=el.dataset.name;
+box.querySelector(".placed").appendChild(tag);
+document.getElementById("message").textContent="✓ Correct! "+el.dataset.name+" belongs to "+chain+".";
+}else{
+document.getElementById("message").textContent="✗ Not quite. "+el.dataset.name+" belongs to another network. Try again!";
+}
+document.getElementById("score").textContent=score;
+document.getElementById("matched").textContent=matched+" / 14";
+selected=null;document.querySelectorAll(".token").forEach(t=>t.classList.remove("selected"));
+if(matched===14)document.getElementById("message").textContent="🎉 Quiz completed! Final score: "+score+" / 140. Attempts: "+attempts+".";
+}
+function restart(){start()}
+start();
+</script>
+</body>
+</html>
+
